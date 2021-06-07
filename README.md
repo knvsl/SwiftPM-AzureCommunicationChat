@@ -33,11 +33,14 @@ most up-to-date code changes.
 To add the library to your application, follow the instructions in
 [Adding Package Dependencies to Your App](https://developer.apple.com/documentation/xcode/adding_package_dependencies_to_your_app):
 
+In order to independently version packages with Swift Package Manager, we mirror the code from azure-sdk-for-ios into separate
+repositories. Your Swift Package Manager-based app should target these repositories instead of the azure-sdk-for-ios repo.
+
 With your project open in Xcode 11 or later, select **File > Swift Packages > Add Package Dependency...** Enter the
-clone URL of this repository: *https://github.com/Azure/azure-sdk-for-ios.git* and click **Next**. For the version rule,
-specify the exact version or version range you wish to use with your application and click **Next**. Finally, place a
-checkmark next to the library, ensure your application target is selected in the **Add to target** dropdown, and click
-**Finish**.
+clone URL of the Swift Package Manager mirror repository: *https://github.com/Azure/SwiftPM-AzureCommunicationChat.git*
+and click **Next**. For the version rule, specify the exact version or version range you wish to use with your application and
+click **Next**. Finally, place a checkmark next to the library, ensure your application target is selected in the **Add to target**
+dropdown, and click **Finish**.
 
 ##### Swift CLI
 
@@ -48,9 +51,10 @@ Open your project's `Package.swift` file and add a new package dependency to you
 specifying the clone URL of this repository and the version specifier you wish to use:
 
 ```swift
+// swift-tools-version:5.3
     dependencies: [
         ...
-        .package(url: "https://github.com/Azure/azure-sdk-for-ios.git", from: "1.0.0-beta.11")
+        .package(name: "AzureCommunicationChat", url: "https://github.com/Azure/SwiftPM-AzureCommunicationChat.git", from: "1.0.0-beta.12")
     ],
 ```
 
@@ -88,7 +92,7 @@ platform :ios, '12.0'
 use_frameworks!
 
 target 'MyTarget' do
-  pod 'AzureCommunicationChat', '1.0.0-beta.11'
+  pod 'AzureCommunicationChat', '1.0.0-beta.12'
   ...
 end
 ```
@@ -116,7 +120,7 @@ Using the APIs, users can also send typing indicators when typing a message and 
 To instantiate a ChatClient you will need the CommunicationServices resource endpoint, a CommunicationTokenCredential created from a User Access Token, and optional options to create the client with.
 
 ```swift
-import AzureCommunication
+import AzureCommunicationCommon
 import AzureCommunicationChat
 import AzureCore
 
@@ -125,8 +129,8 @@ let endpoint = "<communication_resource_endpoint>"
 let credential = try CommunicationTokenCredential(<"user_access_token>")
 
 let options = AzureCommunicationChatClientOptions(
-    logger: ClientLoggers.default,
-    dispatchQueue: self.queue
+	logger: ClientLoggers.default,
+	dispatchQueue: self.queue
 )
 
 let chatClient = ChatClient(endpoint: endpoint, credential: credential, withOptions: options)
@@ -138,6 +142,7 @@ let chatClient = ChatClient(endpoint: endpoint, credential: credential, withOpti
 ChatClient supports the following methods, see the links below for examples.
 
 - [Create a thread](#create-a-thread)
+- [Get a threads properties](#get-a-threads-properties)
 - [List threads](#list-threads)
 - [Delete a thread](#delete-a-thread)
 - [Get a thread client](#get-a-thread-client)
@@ -150,9 +155,6 @@ ChatClient supports the following methods, see the links below for examples.
 
 ChatThreadClients should be created through the ChatClient. A ChatThreadClient is associated with a specific chat thread and is used to perform operations within the thread. See the list below for examples of each operation that ChatThreadClient supports.
 
-#### ChatThread Operations
-- [Get the chat threads properties](#get-a-threads-properties)
-
 #### Message Operations
 
 - [Send a message](#send-a-message)
@@ -160,6 +162,7 @@ ChatThreadClients should be created through the ChatClient. A ChatThreadClient i
 - [List messages](#list-messages)
 - [Update a message](#update-a-message)
 - [Delete a message](#delete-a-message)
+- [Receive messages from a thread](#receive-messages-from-a-thread)
 
 #### Thread Participant Operations
 
@@ -186,27 +189,37 @@ Use the `create` method of `ChatClient` to create a new thread.
 
 Thread creation may result in partial errors, meaning the thread was successfully created but certain participants failed to be added. Participants that failed to be added will be listed as part of the response.
 
-- `CreateThreadRequest` is the model to pass to this method. It contains the participants to add to the thread as well as the topic of the thread.
+- `CreateChatThreadRequest` is the model to pass to this method. It contains the topic of the thread as well as the optional participants to create the thread with.
 
 - `CreateChatThreadResult` is the result returned from creating a thread.
-- `chatThread` contains the ChatThreadProperties of the thread that was created.
-- `invalidParticipants` is an array of errors for any invalid participants that failed to be added to the chat thread. 
+- `chatThread` is the `ChatThreadProperties` of the thread that was created.
+- `invalidParticipants` is an array of errors for any participants that failed to be added to the thread.
 
 ```swift
-let thread = CreateThreadRequest(
-    topic: "General",
-    participants: [
-        // userId is a valid ACS user ID string
-        Participant(
-            id: CommunicationUserIdentifier(<userId>),
-            displayName: "initial participant"
-        )
-    ]
+let thread = CreateChatThreadRequest(
+    topic: "General"
 )
 
-chatClient.create(chatThread: thread) { result, _ in
+chatClient.create(thread: thread) { result, _ in
     switch result {
     case let .success(chatThreadResult):
+        // Take further action
+
+    case let .failure(error):
+        // Display error message
+    }
+}
+```
+
+#### Get a threads properties
+
+Use the `getProperties` method of `ChatThreadClient` to retrieve a threads properties.
+- `ChatThreadProperties` is the type that is returned. It contains information about the thread including the thread ID, the topic, when it was created or deleted, and who created it.
+
+```swift
+chatThreadClient.getProperties { result, _ in
+    switch result {
+    case let .success(chatThreadProperties):
         // Take further action
 
     case let .failure(error):
@@ -223,8 +236,8 @@ Use the `listThreads` method to retrieve a list of threads.
 - `maxPageSize`, optional, is the maximum number of messages to be returned per page.
 - `startTime`, optional, is the thread start time to consider in the query.
 
-`PagedCollection<ChatThreadItme>` is the response returned from listing threads.
-`ChatThreadItem` represents a summary of information about a thread including the thread ID, topic, time of deletion, and time of last message received, as applicable.
+`PagedCollection<ChatThreadItem>` is the response returned from listing threads.
+`ChatThreadItem` represents a summary of information about the thread including the thread ID, topic, time of deletion, and time of last message received, as applicable.
 
 ```swift
 import AzureCore
@@ -233,7 +246,7 @@ chatClient.listThreads(withOptions: options) { result, _ in
     switch result {
     case let .success(listThreadsResponse):
         var iterator = listThreadsResponse.syncIterator
-        while let threadInfo = iterator.next() {
+        while let threadItem = iterator.next() {
             // Take further action
         }
 
@@ -254,24 +267,6 @@ Use the `delete` method of `ChatClient` to delete a thread.
 chatClient.delete(thread: threadId) { result, httpResponse in
     switch result {
     case .success:
-        // Take further action
-
-    case let .failure(error):
-        // Display error message
-    }
-}
-```
-
-### ChatThread Operations
-
-#### Get a threads properties
-
-Use the `getProperties` method of `ChatThreadClient` to retrieve a chat thread's properties.
-
-```swift
-chatThreadClient.getProperties() { result, _ in
-    switch result {
-    case let .success(chatThread):
         // Take further action
 
     case let .failure(error):
@@ -370,9 +365,7 @@ client.listMessages(withOptions: options) { result, _ in
 Use the `update` method of `ChatThreadClient` to update the content of a message.
 
 - `content` is the message content to be updated.
-- `chatMessageId` is the unique ID of the message.
-
--`messageId` is the unique id of the message.
+- `messageId` is the unique ID of the message.
 
 ```swift
 let newContent = "Some new message content"
@@ -403,6 +396,33 @@ chatThreadClient.delete(message: messageId) { result, _ in
         // Display error message
     }
 }
+```
+
+#### Receive messages from a thread
+
+With realtime notifications enabled you can receive events when messages are sent to the thread. 
+To enable realtime notifications use the `startRealtimeNotifications` method of `ChatClient`. Starting notifications is an asynhronous operation.
+
+```swift
+chatClient.startRealTimeNotifications() { result in
+    switch result {
+    case .success:
+        // Notifications started
+    case let.failure(error):
+        // Handle failure
+    }
+}
+```
+
+To receive messages for a thread, use the `register` method of `ChatClient`.
+
+```swift
+func handler (response: Any, eventId: ChatEventId) {
+    // Handle chatMessageReceived event
+}
+                
+chatClient.register(event: ChatEventId.chatMessageReceived, handler: handler)
+
 ```
 
 ### Thread Participant Operations
@@ -438,15 +458,15 @@ Use the `add` method to add one or more participants to a thread.
 - `AddChatParticipantsResult` is the model returned, it contains an invalidParticipants property that has an array of ChatErrors describing any participants that failed to be added to the chat.
 
 ```swift
-let threadParticipants = [Participant(
-        id: userId,
+let threadParticipants = [ChatParticipant(
+        id: userIdentifier,
         displayName: "a new participant"
     )]
 
 chatThreadClient.add(participants: threadParticipants) { result, _ in
     switch result {
     case let .success(result):
-        // Check for invalid participants in result
+        // Check for invalid participants
 
     case let .failure(error):
         // Display error message
@@ -458,10 +478,10 @@ chatThreadClient.add(participants: threadParticipants) { result, _ in
 
 Use the `remove` method of `ChatThreadClient` to remove a participant from a thread.
 
-- `participant` is identifier of the participant to remove. If you have a `ChatParticipant` object you can access the identifier through the `id` property.
+- `participant` is the identifier of the participant to remove.
 
 ```swift
-chatThreadClient.remove(participant: identifer) { result, _ in
+chatThreadClient.remove(participant: participantIdentifier) { result, _ in
     switch result {
     case .success:
         // Take further action
@@ -565,13 +585,19 @@ client.create(thread: thread) { result, _ in
 }
 ```
 
+If you run into issues while using this library, please feel free to
+[file an issue](https://github.com/Azure/azure-sdk-for-ios/issues/new).
+
 ## Next steps
 
 More sample code should go here, along with links out to the appropriate example tests.
 
 ## Contributing
 
-This project welcomes contributions and suggestions. Most contributions require you to agree to a Contributor License
+This project welcomes contributions and suggestions. All code contributions should be made in the [Azure SDK for iOS]
+(https://github.com/Azure/azure-sdk-for-ios) repository.
+
+Most contributions require you to agree to a Contributor License
 Agreement (CLA) declaring that you have the right to, and actually do, grant us the rights to use your contribution. For
 details, visit https://cla.microsoft.com.
 

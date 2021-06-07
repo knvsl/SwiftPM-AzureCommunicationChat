@@ -32,22 +32,30 @@ import PackageDescription
 let package = Package(
     name: "AzureCommunicationChat",
     platforms: [
-        .macOS(.v10_13), .iOS(.v12)
+        .iOS(.v12)
     ],
     products: [
         .library(name: "AzureCommunicationChat", targets: ["AzureCommunicationChat"])
     ],
     dependencies: [
-        .package(url: "https://github.com/Azure/SwiftPM-AzureCore.git", from: "master"),
-        .package(url: "https://github.com/Azure/SwiftPM-AzureCommunication.git", from: "master"),
+        .package(name: "AzureCore", url: "https://github.com/Azure/SwiftPM-AzureCore.git", from: "1.0.0-beta.12"),
+        .package(
+            name: "AzureCommunicationCommon",
+            url: "https://github.com/Azure/SwiftPM-AzureCommunicationCommon.git",
+            from: "1.0.0"
+        ),
         .package(url: "https://github.com/AliSoftware/OHHTTPStubs.git", from: "9.1.0"),
-        .package(name: "TrouterClientIos", url: "https://github.com/microsoft/trouter-client-ios.git", from: "0.0.1-beta.4")
+        .package(
+            name: "TrouterClientIos",
+            url: "https://github.com/microsoft/trouter-client-ios.git",
+            from: "0.0.1-beta.4"
+        )
     ],
     targets: [
         // Build targets
         .target(
             name: "AzureCommunicationChat",
-            dependencies: [ "AzureCore", "AzureCommunication", "TrouterClientIos"],
+            dependencies: ["AzureCore", "AzureCommunicationCommon", "TrouterClientIos"],
             path: "Source",
             exclude: [
                 "README.md",
@@ -60,9 +68,9 @@ let package = Package(
         .testTarget(
             name: "AzureCommunicationChatTests",
             dependencies: [
-                "AzureCommunication",
+                "AzureCommunicationCommon",
                 "AzureCommunicationChat",
-                .product(name: "OHHTTPStubsSwift", package: "OHHTTPStubs"),
+                .product(name: "OHHTTPStubsSwift", package: "OHHTTPStubs")
             ],
             path: "Tests",
             exclude: [

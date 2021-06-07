@@ -24,8 +24,8 @@
 //
 // --------------------------------------------------------------------------
 
-import AzureCommunication
 import AzureCommunicationChat
+import AzureCommunicationCommon
 import AzureCore
 import XCTest
 
@@ -33,10 +33,10 @@ class ChatClientTests: XCTestCase {
     /// ChatClient initialized in setup.
     private var chatClient: ChatClient!
     /// Test mode.
-    private var mode = ProcessInfo.processInfo.environment["TEST_MODE"] ?? "playback"
+    private var mode = getEnvironmentVariable(withKey: "TEST_MODE", default: "playback")
 
     override class func setUp() {
-        let mode = ProcessInfo.processInfo.environment["TEST_MODE"] ?? "playback"
+        let mode = getEnvironmentVariable(withKey: "TEST_MODE", default: "playback")
         if mode == "playback" {
             // Register stubs for playback mode
             Recorder.registerStubs()
@@ -44,8 +44,8 @@ class ChatClientTests: XCTestCase {
     }
 
     override func setUpWithError() throws {
-        let endpoint = ProcessInfo.processInfo.environment["AZURE_COMMUNICATION_ENDPOINT"] ?? "https://endpoint"
-        let token = ProcessInfo.processInfo.environment["AZURE_COMMUNICATION_TOKEN"] ?? generateToken()
+        let endpoint = getEnvironmentVariable(withKey: "AZURE_COMMUNICATION_ENDPOINT", default: "https://endpoint")
+        let token = generateToken()
         let credential = try CommunicationTokenCredential(token: token)
         let options = AzureCommunicationChatClientOptions()
 
@@ -65,7 +65,7 @@ class ChatClientTests: XCTestCase {
                 let chatThread = response.chatThread
                 XCTAssertNotNil(response.chatThread)
                 XCTAssertEqual(chatThread?.topic, thread.topic)
-                XCTAssertNotNil(httpResponse?.httpRequest?.headers["repeatability-Request-Id"])
+                XCTAssertNotNil(httpResponse?.httpRequest?.headers["repeatability-request-id"])
                 XCTAssertNil(response.invalidParticipants)
 
                 if self.mode == "record" {
@@ -87,7 +87,7 @@ class ChatClientTests: XCTestCase {
     }
 
     func test_CreateThread_WithParticipants() {
-        let userId = ProcessInfo.processInfo.environment["AZURE_COMMUNICATION_USER_ID_2"] ?? "id2"
+        let userId = getEnvironmentVariable(withKey: "AZURE_COMMUNICATION_USER_ID_2", default: "id2")
         let thread = CreateChatThreadRequest(
             topic: "Test topic",
             participants: [
@@ -103,7 +103,7 @@ class ChatClientTests: XCTestCase {
                 let chatThread = response.chatThread
                 XCTAssertNotNil(response.chatThread)
                 XCTAssertEqual(chatThread?.topic, thread.topic)
-                XCTAssertNotNil(httpResponse?.httpRequest?.headers["repeatability-Request-Id"])
+                XCTAssertNotNil(httpResponse?.httpRequest?.headers["repeatability-request-id"])
                 XCTAssertNil(response.invalidParticipants)
 
             case let .failure(error):
@@ -117,16 +117,16 @@ class ChatClientTests: XCTestCase {
             topic: "Test topic"
         )
 
-        let options = Chat.CreateChatThreadOptions(repeatabilityRequestId: "test-repeatability")
+        let options = CreateChatThreadOptions(repeatabilityRequestId: "test-repeatability")
 
         let expectation = self.expectation(description: "Create thread")
 
         chatClient.create(thread: thread, withOptions: options) { result, httpResponse in
             switch result {
             case .success:
-                XCTAssertNotNil(httpResponse?.httpRequest?.headers["repeatability-Request-Id"])
+                XCTAssertNotNil(httpResponse?.httpRequest?.headers["repeatability-request-id"])
                 XCTAssertEqual(
-                    httpResponse?.httpRequest?.headers["repeatability-Request-Id"],
+                    httpResponse?.httpRequest?.headers["repeatability-request-id"],
                     options.repeatabilityRequestId
                 )
 

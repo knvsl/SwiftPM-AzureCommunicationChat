@@ -46,11 +46,10 @@ class CommunicationSignalingClient {
             skypetokenProvider: communicationSkypeTokenProvider
         )
 
-        let communicationCache = CommunicationCache()
         selfHostedTrouterClient = SelfHostedTrouterClient.create(
             withClientVersion: defaultClientVersion,
             authHeadersProvider: trouterSkypeTokenHeaderProvider,
-            dataCache: communicationCache,
+            dataCache: nil,
             trouterHostname: defaultTrouterHostname
         )
 
@@ -116,18 +115,6 @@ class CommunicationSkypeTokenProvider: NSObject, TrouterSkypetokenProvider {
     }
 }
 
-class CommunicationCache: NSObject, TrouterConnectionDataCache {
-    var data: String?
-
-    func store(_ data: String!) {
-        self.data = data
-    }
-
-    func load() -> String {
-        return data ?? ""
-    }
-}
-
 class CommunicationHandler: NSObject, TrouterListener {
     var handler: EventHandler
     var logger: ClientLogger
@@ -163,7 +150,7 @@ class CommunicationHandler: NSObject, TrouterListener {
 
             // Convert trouter payload to chat event payload
             let chatEvent = try TrouterEventUtil.create(chatEvent: chatEventId, from: request)
-            handler(chatEvent, chatEventId)
+            handler(chatEvent)
         } catch {
             logger.error("Error: \(error)")
         }
@@ -176,4 +163,4 @@ class CommunicationHandler: NSObject, TrouterListener {
     }
 }
 
-public typealias EventHandler = (_ response: Any, _ eventId: ChatEventId) -> Void
+public typealias EventHandler = (_ response: TrouterEvent) -> Void
