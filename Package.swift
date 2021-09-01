@@ -48,7 +48,7 @@ let package = Package(
         .package(
             name: "Trouter",
             url: "https://github.com/microsoft/trouter-client-ios.git",
-            from: "0.0.1-beta.5"
+            .branch("release/v0.0.5-beta.5")
         )
     ],
     targets: [
